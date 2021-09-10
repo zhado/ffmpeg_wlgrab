@@ -48,12 +48,7 @@
 #include "libavformat/internal.h"
 #include "libavformat/internal.h"
 
-#include "wayland_protocols/wlr-screencopy-unstable-v1-protocol.c"
 #include "wayland_protocols/wlr-screencopy-unstable-v1-client-protocol.h"
-
-#include "wayland_protocols/xdg-output-unstable-v1-protocol.c"
-#include "wayland_protocols/xdg-output-unstable-v1-client-protocol.h"
-
 
 typedef struct WLGrabContext {
 	const AVClass *class;
@@ -114,10 +109,6 @@ static void global_registry_handler(void *data, struct wl_registry *registry, ui
 	{
 		way_bs->screencopy_manager = (struct zwlr_screencopy_manager_v1*) wl_registry_bind(registry, id,&zwlr_screencopy_manager_v1_interface, 2);
 	}
-	else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0)
-	{
-		way_bs->zxdg_output_manager = (struct zxdg_output_manager_v1*) wl_registry_bind(registry, id, &zxdg_output_manager_v1_interface, 2);
-	}
 }
 
 static void global_registry_remover(void *data, struct wl_registry *registry, uint32_t id)
@@ -125,29 +116,6 @@ static void global_registry_remover(void *data, struct wl_registry *registry, ui
     printf("Got a registry losing event for %d\n", id);
 }
 
-static void handle_xdg_output_logical_position(void* data,struct zxdg_output_v1* zxdg_output, int32_t x, int32_t y){
-	WLGrabContext* way_bs=(WLGrabContext*)data;
-	way_bs->output_x=x;
-	way_bs->output_y=y;
-}
-
-static void handle_xdg_output_logical_size(void* data,struct zxdg_output_v1* zxdg_output, int32_t w, int32_t h){
-	WLGrabContext* way_bs=(WLGrabContext*)data;
-	way_bs->output_width=w;
-	way_bs->output_height=h;
-}
-
-static void handle_xdg_output_done(void* data, struct zxdg_output_v1* zxdg_output_v1) { }
-
-static void handle_xdg_output_name(void* data, struct zxdg_output_v1 *zxdg_output_v1,const char *name){
-	WLGrabContext* way_bs=(WLGrabContext*)data;
-	memset(way_bs->output_name, 0, 99);
-	strcpy(way_bs->output_name, name);
-}
-
-static void handle_xdg_output_description(void* data, struct zxdg_output_v1 *zxdg_output_v1,const char *description){
-	WLGrabContext* way_bs=(WLGrabContext*)data;
-}
 
 // aedan frame ebis yleobebi
 
@@ -187,7 +155,7 @@ static void frame_handle_ready(void* data, struct zwlr_screencopy_frame_v1* zwlr
 }
 
 static void frame_handle_failed(void* data, struct zwlr_screencopy_frame_v1 * frame) {
-	WLGrabContext* way_bs=(WLGrabContext*)data;
+	/*WLGrabContext* way_bs=(WLGrabContext*)data;*/
 	printf("cant get frame\n");
 }
 
@@ -201,15 +169,6 @@ static const AVClass wlgrab_class = {
     .option     = options,
     .version    = LIBAVUTIL_VERSION_INT,
     .category   = AV_CLASS_CATEGORY_DEVICE_VIDEO_INPUT,
-};
-
-
-static const struct zxdg_output_v1_listener xdg_output_implementation = {
-	.logical_position = handle_xdg_output_logical_position,
-	.logical_size = handle_xdg_output_logical_size,
-	.done = handle_xdg_output_done,
-	.name = handle_xdg_output_name,
-	.description = handle_xdg_output_description
 };
 
 static const struct wl_registry_listener registry_listener = {
@@ -227,10 +186,17 @@ static struct zwlr_screencopy_frame_v1_listener frame_listener = {
 
 static int wlgrab_read_header(AVFormatContext *s)
 {
-	int dis_ret=0;
-	WLGrabContext* way_bs=s->priv_data;
+	AVStream *st ;
+	WLGrabContext* way_bs;
+	struct wl_registry *registry;
+	char shm_file_name[] = "/tmp/shared-mem-XXXXXX";
+	int fd;
+	int ret;
+	struct wl_shm_pool *pool;
+
+	way_bs=s->priv_data;
 	way_bs->display = wl_display_connect(NULL);
-	AVStream *st = avformat_new_stream(s, NULL);
+	st = avformat_new_stream(s, NULL);
 
 	/*[>[>file_out_fd = open("sandro_frame", O_WRONLY | O_CREAT, 0666);<]<]*/
 	/*[>[>if(file_out_fd<0){ printf("file ver shevqmeni\n"); exit(1);}<]<]*/
@@ -240,17 +206,12 @@ static int wlgrab_read_header(AVFormatContext *s)
 		fprintf(stderr, "failed to create display: %m\n");
 		return EXIT_FAILURE;
 	}
-	struct wl_registry *registry = wl_display_get_registry(way_bs->display);
+	registry = wl_display_get_registry(way_bs->display);
 	wl_registry_add_listener(registry, &registry_listener, way_bs);
 
 	wl_display_dispatch(way_bs->display);
 	wl_display_roundtrip(way_bs->display);
 
-	way_bs->zxdg_output = zxdg_output_manager_v1_get_xdg_output(way_bs->zxdg_output_manager, way_bs->output);
-	zxdg_output_v1_add_listener(way_bs->zxdg_output, &xdg_output_implementation, way_bs);
-
-	wl_display_dispatch(way_bs->display);
-	wl_display_roundtrip(way_bs->display);
 
 // kadrebis migeba aqedan iwyeba
 // jer pirvelad vidzaxebt rom info ebi gavigot
@@ -261,28 +222,26 @@ static int wlgrab_read_header(AVFormatContext *s)
 
 	zwlr_screencopy_frame_v1_add_listener(way_bs->frame, &frame_listener, way_bs);
 
-	dis_ret=wl_display_dispatch(way_bs->display);
+	wl_display_dispatch(way_bs->display);
 	wl_display_roundtrip(way_bs->display);
 
 	way_bs->first_frame=false;
 	way_bs->frame_size_bytes=way_bs->frame_height*way_bs->frame_stride;
 
 	// crate shared memory
-	char name[] = "/tmp/shared-mem-XXXXXX";
-	int fd = mkstemp(name);
+	fd = mkstemp(shm_file_name);
 	if (fd < 0) { printf("cant make fd\n"); }
 
-	int ret;
 	while ((ret = ftruncate(fd, way_bs->frame_size_bytes)) == EINTR) { }
 	if (ret < 0) { close(fd); }
 
 	// to make it anonymoose :D
-	unlink(name);
+	unlink(shm_file_name);
 
 	way_bs->frame_bytes = mmap(NULL, way_bs->frame_size_bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (way_bs->frame_bytes == MAP_FAILED) { printf("mmap fail\n"); }
 
-	struct wl_shm_pool *pool = wl_shm_create_pool(way_bs->shm, fd, way_bs->frame_size_bytes);
+	pool = wl_shm_create_pool(way_bs->shm, fd, way_bs->frame_size_bytes);
 	close(fd);
 	way_bs->frame_buffer = wl_shm_pool_create_buffer(pool, 0, way_bs->frame_width, way_bs->frame_height,way_bs->frame_stride, way_bs->frame_format);
 	wl_shm_pool_destroy(pool);
@@ -317,7 +276,8 @@ static int wlgrab_read_header(AVFormatContext *s)
 
 static int wlgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
-	stopwatch_start();
+	/*stopwatch_stop_and_print();*/
+	/*stopwatch_start();*/
 	/*av_log(s,AV_LOG_WARNING,"gib packet\n");*/
 
 	WLGrabContext* way_bs=s->priv_data;
@@ -329,11 +289,9 @@ static int wlgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 
 	pkt->dts=pkt->pts=way_bs->pts;
 
-	/*usleep(10*1000);*/
 	pkt->data = way_bs->frame_bytes;
 	pkt->size = way_bs->frame_size_bytes;
 
-	/*stopwatch_stop_and_print();*/
 	return 0;
 }
 static  int wlgrab_read_close(AVFormatContext *avctx)

@@ -48,7 +48,7 @@ OBJS-$(CONFIG_V4L2_INDEV)                += v4l2.o v4l2-common.o timefilter.o
 OBJS-$(CONFIG_V4L2_OUTDEV)               += v4l2enc.o v4l2-common.o
 OBJS-$(CONFIG_VFWCAP_INDEV)              += vfwcap.o
 OBJS-$(CONFIG_XCBGRAB_INDEV)             += xcbgrab.o
-OBJS-$(CONFIG_WLGRAB_INDEV)              += wlgrab.o
+OBJS-$(CONFIG_WLGRAB_INDEV)              += wlgrab.o ./wayland_protocols/wlr-screencopy-unstable-v1-protocol.o
 OBJS-$(CONFIG_XV_OUTDEV)                 += xv.o
 
 # external libraries
