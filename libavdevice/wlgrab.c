@@ -20,6 +20,7 @@
  */
 
 #include "config.h"
+#include "../../../../zad_stopwatch.h"
 
 #include <libavutil/avutil.h>
 #include <libavutil/log.h>
@@ -33,6 +34,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 #include <fcntl.h>
 
@@ -160,7 +162,8 @@ static void frame_handle_buffer(void* data, struct zwlr_screencopy_frame_v1 *fra
 		way_bs->frame_format=format;
 		printf("%u\n",format);
 	}else{
-		zwlr_screencopy_frame_v1_copy_with_damage(frame, way_bs->frame_buffer);
+		/*zwlr_screencopy_frame_v1_copy_with_damage(frame, way_bs->frame_buffer);*/
+		zwlr_screencopy_frame_v1_copy(frame, way_bs->frame_buffer);
 		/*printf("dakopirda\n");*/
 	}
 
@@ -174,6 +177,8 @@ static void frame_handle_flags(void* data, struct zwlr_screencopy_frame_v1* zwlr
 static void frame_handle_ready(void* data, struct zwlr_screencopy_frame_v1* zwlr_screencopy_frame_v1,uint32_t tv_sec_hi, uint32_t tv_sec_low, uint32_t tv_nsec) {
 	WLGrabContext* way_bs=(WLGrabContext*)data;
 	way_bs->pts= ((((uint64_t)tv_sec_hi) << 32) | tv_sec_low) * 1000000000 + tv_nsec;
+	way_bs->pts/=1000;
+	zwlr_screencopy_frame_v1_destroy(way_bs->frame);
 	/*printf("frame ready\n");*/
 	/*for(uint64_t i=0;i<way_bs->frame_size_bytes;i++){*/
 		/*way_bs->written_bytes++;*/
@@ -282,6 +287,7 @@ static int wlgrab_read_header(AVFormatContext *s)
 	way_bs->frame_buffer = wl_shm_pool_create_buffer(pool, 0, way_bs->frame_width, way_bs->frame_height,way_bs->frame_stride, way_bs->frame_format);
 	wl_shm_pool_destroy(pool);
 	way_bs->written_bytes=0;
+	zwlr_screencopy_frame_v1_destroy(way_bs->frame);
  
 	
 	st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -291,6 +297,7 @@ static int wlgrab_read_header(AVFormatContext *s)
 	st->codecpar->bit_rate = way_bs->frame_size_bytes;
 	
 	st->time_base  = AV_TIME_BASE_Q;
+	st->avg_frame_rate=(AVRational){60000,1000};
 	/*st->avg_frame_rate=(AVRational){60,1};*/
 	/*st->r_frame_rate=(AVRational){60,1};*/
 
@@ -310,30 +317,23 @@ static int wlgrab_read_header(AVFormatContext *s)
 
 static int wlgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
+	stopwatch_start();
 	/*av_log(s,AV_LOG_WARNING,"gib packet\n");*/
 
 	WLGrabContext* way_bs=s->priv_data;
-	zwlr_screencopy_frame_v1_destroy(way_bs->frame);
 	way_bs->frame = zwlr_screencopy_manager_v1_capture_output(way_bs->screencopy_manager, 1, way_bs->output);
 	zwlr_screencopy_frame_v1_add_listener(way_bs->frame, &frame_listener, way_bs);
 	wl_display_dispatch(way_bs->display);
 	// to dispatch the copy
 	wl_display_dispatch(way_bs->display);
 
+	pkt->dts=pkt->pts=way_bs->pts;
 
+	/*usleep(10*1000);*/
 	pkt->data = way_bs->frame_bytes;
 	pkt->size = way_bs->frame_size_bytes;
-	/*int64_t now = av_gettime();*/
-	/*pkt->duration=av_rescale_q(1, (AVRational){1/6000}, AV_TIME_BASE_Q);*/
 
-	/*pkt->dts=pkt->pts;*/
-	pkt->dts=pkt->pts=av_gettime();
-	/*pkt->duration = 10*1000*1000;*/
-	/*av_log(s,AV_LOG_WARNING,"time= %ld\n",av_gettime()-start);*/
-	/*av_usleep(12000);*/
-
-	/*pkt->pts = av_rescale_q(now, AV_TIME_BASE_Q, s->streams[0]->time_base);*/
-	/*pkt->pts = av_rescale_q(now,  s->streams[0]->time_base,AV_TIME_BASE_Q);*/
+	/*stopwatch_stop_and_print();*/
 	return 0;
 }
 static  int wlgrab_read_close(AVFormatContext *avctx)

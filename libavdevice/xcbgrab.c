@@ -20,6 +20,7 @@
  */
 
 #include "config.h"
+#include "../../../../zad_stopwatch.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -414,6 +415,7 @@ static void xcbgrab_update_region(AVFormatContext *s, int win_x, int win_y)
 
 static int xcbgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
+stopwatch_start();
     XCBGrabContext *c = s->priv_data;
     xcb_query_pointer_cookie_t pc;
     xcb_get_geometry_cookie_t gc;
@@ -481,6 +483,7 @@ static int xcbgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 
     free(p);
     free(geo);
+stopwatch_stop_and_print();
 
     return ret;
 }
