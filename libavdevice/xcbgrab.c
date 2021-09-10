@@ -200,6 +200,7 @@ static int xcbgrab_frame(AVFormatContext *s, AVPacket *pkt)
 
 static int64_t wait_frame(AVFormatContext *s, AVPacket *pkt)
 {
+	/*return 0;*/
     XCBGrabContext *c = s->priv_data;
     int64_t curtime, delay;
 

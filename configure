@@ -1814,6 +1814,7 @@ EXTERNAL_LIBRARY_LIST="
     libiec61883
     libilbc
     libjack
+    sandro
     libklvanc
     libkvazaar
     libmodplug
@@ -3463,6 +3464,7 @@ oss_indev_deps_any="sys_soundcard_h"
 oss_outdev_deps_any="sys_soundcard_h"
 pulse_indev_deps="libpulse"
 pulse_outdev_deps="libpulse"
+wlgrab_indev_deps="sandro"
 sdl2_outdev_deps="sdl2"
 sndio_indev_deps="sndio"
 sndio_outdev_deps="sndio"
@@ -6712,6 +6714,9 @@ fi
 
 enabled libxcb && check_pkg_config libxcb "xcb >= 1.4" xcb/xcb.h xcb_connect ||
     disable libxcb_shm libxcb_shape libxcb_xfixes
+
+enabled sandro && check_pkg_config sandro wayland-client wayland-client-protocol.h wl_display_connect ||
+    disable sandro
 
 if enabled libxcb; then
     enabled libxcb_shm    && check_pkg_config libxcb_shm    xcb-shm    xcb/shm.h    xcb_shm_attach

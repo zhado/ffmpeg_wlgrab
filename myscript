@@ -1,0 +1,27 @@
+#!/bin/sh
+PATH="../../bin/:$PATH" PKG_CONFIG_PATH="../../ffmpeg_build/lib/pkgconfig" ./configure \
+--prefix="../../ffmpeg_build" \
+--pkg-config-flags="--static" \
+--extra-cflags="-I../../ffmpeg_build/include" \
+--extra-ldflags="-L../../ffmpeg_build/lib" \
+--extra-libs="-lpthread -lm" \
+--ld="g++" \
+--bindir="../../bin" \
+--disable-ffplay \
+--disable-ffprobe \
+--enable-gpl \
+--enable-libx264 \
+--disable-doc \
+--disable-optimizations \
+--enable-libpulse \
+--enable-sandro
+
+
+#--disable-hwaccels \
+#--disable-encoders \
+#--disable-decoders \
+#--disable-muxers  \
+#--disable-parsers \
+#--disable-protocols \
+#--disable-demuxers \
+#--disable-filters  \
