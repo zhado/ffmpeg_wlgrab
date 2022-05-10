@@ -22,6 +22,7 @@
 #include "config.h"
 #include "../../../../zad_stopwatch.h"
 
+#include <libavutil/log.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xcb/xcb.h>
@@ -307,6 +308,7 @@ static int xcbgrab_frame_shm(AVFormatContext *s, AVPacket *pkt)
     pkt->data = buf->data;
     pkt->size = c->frame_size;
 
+
     return 0;
 }
 #endif /* CONFIG_LIBXCB_SHM */
@@ -415,7 +417,6 @@ static void xcbgrab_update_region(AVFormatContext *s, int win_x, int win_y)
 
 static int xcbgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
-stopwatch_start();
     XCBGrabContext *c = s->priv_data;
     xcb_query_pointer_cookie_t pc;
     xcb_get_geometry_cookie_t gc;
@@ -427,8 +428,9 @@ stopwatch_start();
     int64_t pts;
     int win_x = 0, win_y = 0;
 
-    wait_frame(s, pkt);
+    /*wait_frame(s, pkt);*/
     pts = av_gettime();
+
 
     if (c->follow_mouse || c->draw_mouse) {
         pc  = xcb_query_pointer(c->conn, c->window_id);
@@ -483,7 +485,6 @@ stopwatch_start();
 
     free(p);
     free(geo);
-stopwatch_stop_and_print();
 
     return ret;
 }
@@ -497,6 +498,7 @@ static av_cold int xcbgrab_read_close(AVFormatContext *s)
 #endif
 
     xcb_disconnect(ctx->conn);
+
 
     return 0;
 }
@@ -617,8 +619,8 @@ static int create_stream(AVFormatContext *s)
 
     c->time_base  = (AVRational){ st->avg_frame_rate.den,
                                   st->avg_frame_rate.num };
-    c->frame_duration = av_rescale_q(1, c->time_base, AV_TIME_BASE_Q);
-    c->time_frame = av_gettime_relative();
+    /*c->frame_duration = av_rescale_q(1, c->time_base, AV_TIME_BASE_Q);*/
+    /*c->time_frame = av_gettime_relative();*/
 
     ret = pixfmt_from_pixmap_format(s, geo->depth, &st->codecpar->format, &c->bpp);
     free(geo);
@@ -643,7 +645,7 @@ static int create_stream(AVFormatContext *s)
     st->codecpar->codec_id   = AV_CODEC_ID_RAWVIDEO;
     st->codecpar->width      = c->width;
     st->codecpar->height     = c->height;
-    st->codecpar->bit_rate   = av_rescale(frame_size_bits, st->avg_frame_rate.num, st->avg_frame_rate.den);
+    /*st->codecpar->bit_rate   = av_rescale(frame_size_bits, st->avg_frame_rate.num, st->avg_frame_rate.den);*/
 
     return ret;
 }

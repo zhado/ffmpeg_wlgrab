@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -81,6 +82,8 @@ typedef struct WLGrabContext {
 	
 	void* frame_bytes;
 	uint64_t written_bytes;
+
+	uint64_t last_pts;
 
 } WLGrabContext;
 
@@ -184,8 +187,22 @@ static struct zwlr_screencopy_frame_v1_listener frame_listener = {
 	.damage = frame_handle_damage,
 };
 
-static int wlgrab_read_header(AVFormatContext *s)
-{
+static void* get_frames(void* thread_data){
+	WLGrabContext* way_bs=(WLGrabContext*)thread_data;
+	while(1){
+		way_bs->frame = zwlr_screencopy_manager_v1_capture_output(way_bs->screencopy_manager, 1, way_bs->output);
+		zwlr_screencopy_frame_v1_add_listener(way_bs->frame, &frame_listener, way_bs);
+		wl_display_dispatch(way_bs->display);
+		
+		// to dispatch the copy
+		wl_display_dispatch(way_bs->display);
+		/*break;*/
+	}
+	return 0;
+}
+
+static int wlgrab_read_header(AVFormatContext *s){
+
 	AVStream *st ;
 	WLGrabContext* way_bs;
 	struct wl_registry *registry;
@@ -193,6 +210,8 @@ static int wlgrab_read_header(AVFormatContext *s)
 	int fd;
 	int ret;
 	struct wl_shm_pool *pool;
+	pthread_t frame_thr;
+
 
 	way_bs=s->priv_data;
 	way_bs->display = wl_display_connect(NULL);
@@ -253,7 +272,7 @@ static int wlgrab_read_header(AVFormatContext *s)
 	st->codecpar->codec_id = AV_CODEC_ID_RAWVIDEO;
 	st->codecpar->width  = way_bs->frame_width;
 	st->codecpar->height = way_bs->frame_height;
-	st->codecpar->bit_rate = way_bs->frame_size_bytes;
+	/*st->codecpar->bit_rate = way_bs->frame_size_bytes;*/
 	
 	st->time_base  = AV_TIME_BASE_Q;
 	st->avg_frame_rate=(AVRational){60000,1000};
@@ -270,27 +289,40 @@ static int wlgrab_read_header(AVFormatContext *s)
 		exit(1);
 	}
 
+	pthread_create(&frame_thr, NULL, get_frames, (void*)way_bs);
+        av_usleep(300*1000);
 	av_log(s, AV_LOG_INFO, "wayland is init morcha\n");
 	return 0;
 }
+
+static void xcbgrab_image_reply_free(void *opaque, uint8_t *data)
+{
+}
+
 
 static int wlgrab_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
 	/*stopwatch_stop_and_print();*/
 	/*stopwatch_start();*/
 	/*av_log(s,AV_LOG_WARNING,"gib packet\n");*/
-
 	WLGrabContext* way_bs=s->priv_data;
-	way_bs->frame = zwlr_screencopy_manager_v1_capture_output(way_bs->screencopy_manager, 1, way_bs->output);
-	zwlr_screencopy_frame_v1_add_listener(way_bs->frame, &frame_listener, way_bs);
-	wl_display_dispatch(way_bs->display);
-	// to dispatch the copy
-	wl_display_dispatch(way_bs->display);
 
-	pkt->dts=pkt->pts=way_bs->pts;
+	/*way_bs->frame = zwlr_screencopy_manager_v1_capture_output(way_bs->screencopy_manager, 1, way_bs->output);*/
+	/*zwlr_screencopy_frame_v1_add_listener(way_bs->frame, &frame_listener, way_bs);*/
+	/*wl_display_dispatch(way_bs->display);*/
+	/*// to dispatch the copy*/
+	/*wl_display_dispatch(way_bs->display);*/
 
+	/*pkt->dts=pkt->pts=way_bs->pts;*/
+	pkt->dts=pkt->pts=av_gettime();
+	/*av_log(s,AV_LOG_WARNING,"%lu\n", pkt->pts-way_bs->last_pts);*/
+
+	way_bs->last_pts=pkt->pts;
+
+	pkt->buf = av_buffer_create(way_bs->frame_bytes, way_bs->frame_size_bytes, xcbgrab_image_reply_free, 0, 0);
 	pkt->data = way_bs->frame_bytes;
 	pkt->size = way_bs->frame_size_bytes;
+
 
 	return 0;
 }
