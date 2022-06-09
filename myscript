@@ -8,20 +8,18 @@ PATH="../../bin/:$PATH" PKG_CONFIG_PATH="../../ffmpeg_build/lib/pkgconfig" ./con
 --ld="g++" \
 --bindir="../../bin" \
 --disable-ffplay \
---disable-ffprobe \
---enable-gpl \
---enable-libx264 \
---disable-doc \
---disable-optimizations \
---enable-libpulse \
---enable-sandro
-
-
-#--disable-hwaccels \
+--disable-hwaccels \
+--enable-sandro  \
 #--disable-encoders \
 #--disable-decoders \
 #--disable-muxers  \
 #--disable-parsers \
 #--disable-protocols \
 #--disable-demuxers \
-#--disable-filters  \
+--disable-filters  \
+--disable-ffprobe \
+--enable-gpl \
+--enable-libx264 \
+--disable-doc \
+--disable-optimizations \
+--enable-libpulse \

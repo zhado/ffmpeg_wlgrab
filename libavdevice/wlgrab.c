@@ -282,7 +282,7 @@ static int wlgrab_read_header(AVFormatContext *s){
 	/*st->frame_duration = av_rescale_q(1, c->time_base, AV_TIME_BASE_Q);*/
 	/*st->time_frame = av_gettime_relative();*/
 
-	if(way_bs->frame_format==0)
+	if(way_bs->frame_format!=0)
 		st->codecpar->format =AV_PIX_FMT_BGR0;
 	else{
 		av_log(s, AV_LOG_ERROR, "ragac cudi formatia\n");
